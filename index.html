@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Assinaturas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Biblioteca para ler arquivos Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        input::placeholder {
+            color: #9ca3af;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .view-animation { animation: fadeIn 0.5s ease-out forwards; }
+        
+        #camera-feed {
+            transform: scaleX(-1); /* Espelha o vídeo para uma experiência de selfie */
+        }
+        #signature-pad {
+            border: 2px dashed #cbd5e1;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        /* Custom file input */
+        input[type="file"]::file-selector-button {
+            background: #e5e7eb;
+            color: #374151;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background: #d1d5db;
+        }
+        .company-logo {
+            max-height: 60px;
+            max-width: 200px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Container Principal -->
+    <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+
+        <!-- ===== TELA DE LOGIN ===== -->
+        <div id="login-view" class="view-animation">
+            <header class="text-center mb-8">
+                <img id="login-logo" src="https://placehold.co/200x60/f8fafc/e2e8f0?text=Logo" alt="Logo da Empresa" class="company-logo mx-auto mb-4 hidden">
+                <h1 id="login-company-name" class="text-3xl sm:text-4xl font-bold text-gray-800">Bem-vindo ao Portal</h1>
+                <p class="text-md text-gray-600 mt-2">Faça login com seu CPF para registrar o ponto ou acesse o painel administrativo.</p>
+            </header>
+            <div class="bg-white p-6 rounded-2xl shadow-md max-w-sm mx-auto">
+                <form id="login-form">
+                    <label for="login-cpf" class="block text-sm font-medium text-gray-700 mb-1">CPF do Funcionário</label>
+                    <input type="text" id="login-cpf" name="login-cpf" placeholder="000.000.000-00" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <button type="submit" class="mt-4 w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Entrar
+                    </button>
+                </form>
+                <div id="login-error" class="text-red-500 text-sm mt-2 text-center h-5"></div>
+                <div class="mt-6 text-center">
+                    <button id="admin-login-btn" class="text-sm text-gray-500 hover:text-blue-600 hover:underline">Acesso Administrativo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TELA DO ADMINISTRADOR ===== -->
+        <div id="admin-view" class="hidden">
+            <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                 <div class="flex items-center gap-4">
+                    <img id="admin-logo" src="https://placehold.co/200x60/f8fafc/e2e8f0?text=Logo" alt="Logo da Empresa" class="company-logo hidden">
+                    <h1 id="admin-company-name" class="text-3xl sm:text-4xl font-bold text-gray-800">Painel do Administrador</h1>
+                 </div>
+                 <button id="admin-logout-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors w-full sm:w-auto"><i class="fas fa-sign-out-alt mr-2"></i>Sair</button>
+            </header>
+            
+            <div id="admin-main-content">
+                 <!-- Seção de Personalização -->
+                 <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
+                     <h2 class="text-xl font-semibold mb-4 text-gray-700">Personalização da Empresa</h2>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                             <label for="company-name-input" class="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa</label>
+                             <input type="text" id="company-name-input" placeholder="O nome da sua empresa" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                         </div>
+                         <div>
+                             <label for="company-logo-input" class="block text-sm font-medium text-gray-700 mb-1">Logo da Empresa</label>
+                             <input type="file" id="company-logo-input" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"/>
+                         </div>
+                         <div class="md:col-span-2">
+                             <label for="report-description-input" class="block text-sm font-medium text-gray-700 mb-1">Descrição para o Relatório (Opcional)</label>
+                             <textarea id="report-description-input" placeholder="Ex: Referente ao benefício do mês de..." rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></textarea>
+                         </div>
+                     </div>
+                     <button id="save-customization-btn" class="mt-4 w-full sm:w-auto bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-save mr-2"></i> Salvar Personalização
+                    </button>
+                     <div id="customization-feedback" class="text-sm mt-3 h-5"></div>
+                 </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Adicionar Funcionário (Individual)</h2>
+                    <form id="add-employee-form" class="grid sm:grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div class="md:col-span-1">
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                            <input type="text" id="name" name="name" placeholder="Ex: João da Silva" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label for="cpf" class="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                            <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div class="md:col-span-1">
+                            <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm flex items-center justify-center">
+                                <i class="fas fa-plus mr-2"></i> Adicionar
+                            </button>
+                        </div>
+                    </form>
+                    <div id="form-error" class="text-red-500 text-sm mt-2 h-5"></div>
+                </div>
+
+                <!-- Seção de Importação em Lote -->
+                 <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
+                     <h2 class="text-xl font-semibold mb-4 text-gray-700">Importar em Lote (via Planilha)</h2>
+                     <p class="text-sm text-gray-600 mb-4">Selecione uma planilha (.xlsx, .csv) com as colunas "Nome" e "CPF" para adicionar múltiplos funcionários de uma vez.</p>
+                     <input type="file" id="excel-input" accept=".xlsx, .csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"/>
+                     <div id="import-feedback" class="text-sm mt-3 h-5"></div>
+                 </div>
+
+
+                <!-- Seção de Relatórios -->
+                <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
+                     <h2 class="text-xl font-semibold mb-4 text-gray-700">Relatórios</h2>
+                     <button id="generate-report-btn" class="w-full sm:w-auto bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 transition-all duration-200 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-file-alt mr-2"></i> Gerar Relatório do Mês
+                    </button>
+                </div>
+                
+                <div>
+                    <h2 class="text-2xl font-bold mb-4 text-gray-700">Funcionários Cadastrados</h2>
+                    <div id="employee-list" class="space-y-4">
+                        <div id="loading-state" class="text-center py-10"><i class="fas fa-spinner fa-spin text-4xl text-gray-400"></i><p class="mt-4 text-gray-500">Carregando...</p></div>
+                        <div id="empty-state" class="hidden text-center bg-white p-10 rounded-2xl shadow-sm"><i class="fas fa-folder-open text-4xl text-gray-400"></i><p class="mt-4 text-lg text-gray-500">Nenhum funcionário cadastrado.</p></div>
+                    </div>
+                </div>
+
+                <!-- Zona de Perigo -->
+                <div class="bg-red-50 border-2 border-dashed border-red-200 p-6 rounded-2xl shadow-sm my-8">
+                     <h2 class="text-xl font-semibold mb-4 text-red-800">Zona de Perigo</h2>
+                     <p class="text-sm text-red-700 mb-4">A ação abaixo é irreversível. Tenha a certeza absoluta antes de prosseguir.</p>
+                     <button id="open-delete-all-modal-btn" class="w-full sm:w-auto bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle mr-2"></i> Excluir Todos os Funcionários
+                    </button>
+                </div>
+            </div>
+            
+            <!-- TELA DE RELATÓRIO (Dentro do Admin View) -->
+            <div id="report-view" class="hidden bg-white p-6 rounded-2xl shadow-md">
+                 <h2 id="report-title" class="text-2xl font-bold mb-4 text-gray-700"></h2>
+                 <div id="report-controls" class="flex flex-col sm:flex-row gap-4 mb-6">
+                     <button id="report-back-btn" class="w-full sm:w-auto bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center"><i class="fas fa-arrow-left mr-2"></i>Voltar ao Painel</button>
+                     <button id="print-report-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"><i class="fas fa-print mr-2"></i>Imprimir Relatório</button>
+                 </div>
+                 <div id="printable-report-content" class="overflow-x-auto">
+                    <table id="report-table" class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 font-semibold text-gray-600 border-b-2 border-gray-200">Nome do Funcionário</th>
+                                <th class="p-3 font-semibold text-gray-600 border-b-2 border-gray-200">CPF</th>
+                                <th class="p-3 font-semibold text-gray-600 border-b-2 border-gray-200">Registro Visual</th>
+                                <th class="p-3 font-semibold text-gray-600 border-b-2 border-gray-200">Assinatura</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body">
+                            <!-- Linhas do relatório serão inseridas aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ===== TELA DO FUNCIONÁRIO ===== -->
+        <div id="employee-view" class="hidden">
+             <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                 <div class="flex items-center gap-4">
+                    <img id="employee-logo" src="https://placehold.co/200x60/f8fafc/e2e8f0?text=Logo" alt="Logo da Empresa" class="company-logo hidden">
+                    <h1 id="welcome-message" class="text-2xl sm:text-3xl font-bold text-gray-800"></h1>
+                 </div>
+                <button id="employee-logout-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors w-full sm:w-auto"><i class="fas fa-sign-out-alt mr-2"></i>Sair</button>
+            </header>
+            <div class="bg-white p-6 rounded-2xl shadow-md">
+                 <div id="registration-container">
+                    <!-- Etapa 1: Foto -->
+                    <div id="photo-step">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Etapa 1: Registro Facial</h3>
+                        <div class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden mb-2">
+                            <video id="camera-feed" class="w-full h-full object-cover" autoplay playsinline></video>
+                            <canvas id="photo-canvas" class="hidden"></canvas>
+                        </div>
+                        <div id="camera-error" class="text-red-500 text-sm text-center h-5 mb-2"></div>
+                        <button id="capture-photo-btn" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center">
+                            <i class="fas fa-camera mr-2"></i>Capturar Foto
+                        </button>
+                    </div>
+
+                    <!-- Etapa 2: Assinatura -->
+                    <div id="signature-step" class="mt-6 hidden">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Etapa 2: Assinatura Digital</h3>
+                        <div class="flex flex-col md:flex-row gap-4 items-start">
+                            <div class="w-full md:w-2/3">
+                                <canvas id="signature-pad" class="w-full h-40 rounded-lg bg-white"></canvas>
+                                <div id="signature-error" class="text-red-500 text-sm text-center h-5 mt-1"></div>
+                            </div>
+                            <div class="w-full md:w-1/3">
+                                <p class="text-sm text-gray-600 mb-2">Pré-visualização da Foto:</p>
+                                <img id="photo-preview" src="" alt="Foto Capturada" class="w-full rounded-lg shadow-md aspect-video object-cover">
+                                <button id="retake-photo-btn" class="w-full text-sm text-center mt-2 text-blue-600 hover:underline">Tirar outra foto</button>
+                            </div>
+                        </div>
+                         <button id="clear-signature-btn" class="w-full md:w-auto mt-4 bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"><i class="fas fa-eraser mr-2"></i>Limpar Assinatura</button>
+                    </div>
+                    
+                    <!-- Etapa Final: Salvar -->
+                    <div id="final-step" class="mt-8 hidden">
+                         <button id="save-final-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-lg">
+                            <i class="fas fa-check-circle mr-3"></i>Finalizar e Salvar Registro
+                        </button>
+                    </div>
+
+                 </div>
+                 <div id="signed-confirmation" class="hidden text-center py-8">
+                    <i class="fas fa-check-circle text-5xl text-green-500"></i>
+                    <p id="signed-confirmation-message" class="mt-4 text-xl font-semibold text-gray-700">Você já registrou o ponto para este mês. Obrigado!</p>
+                    <p class="mt-2 text-gray-500">Pode fechar esta página ou sair.</p>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver os registros -->
+    <div id="signature-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="bg-white p-6 rounded-2xl shadow-2xl z-10 max-w-xl w-full">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Registros do Funcionário</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h4 class="font-semibold text-gray-600 mb-2">Registro Visual</h4>
+                    <img id="modal-photo" src="" alt="Foto do Funcionário" class="w-full h-auto rounded-lg shadow-sm">
+                </div>
+                 <div>
+                    <h4 class="font-semibold text-gray-600 mb-2">Assinatura</h4>
+                    <img id="modal-signature" src="" alt="Assinatura do Funcionário" class="w-full h-auto rounded-lg shadow-sm bg-gray-50 p-2">
+                </div>
+            </div>
+            <button id="close-modal-btn" class="mt-6 w-full bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Fechar</button>
+        </div>
+    </div>
+    
+    <!-- Modal de confirmação de exclusão individual -->
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="bg-white p-6 rounded-2xl shadow-2xl z-10 max-w-sm w-full">
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirmar Exclusão</h3>
+            <p class="text-gray-600 mb-6">Tem certeza de que deseja excluir este funcionário? Esta ação não pode ser desfeita.</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancelar</button>
+                <button id="confirm-delete-btn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Login do Administrador -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="bg-white p-6 rounded-2xl shadow-2xl z-10 max-w-sm w-full">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Acesso Administrativo</h3>
+            <form id="admin-password-form">
+                <label for="admin-password" class="block text-sm font-medium text-gray-700 mb-1">Palavra-passe</label>
+                <input type="password" id="admin-password" name="admin-password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <div id="admin-login-error" class="text-red-500 text-sm mt-2 h-5"></div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" id="cancel-admin-login-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancelar</button>
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Entrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Exclusão TOTAL -->
+    <div id="delete-all-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="bg-white p-6 rounded-2xl shadow-2xl z-10 max-w-lg w-full">
+            <h3 class="text-xl font-bold text-red-700 mb-2">Atenção! Ação Irreversível</h3>
+            <p class="text-gray-600 mb-4">Você está prestes a excluir **TODA** a base de dados de funcionários. Todos os cadastros e registros de assinatura serão perdidos para sempre.</p>
+            <p class="text-gray-600 mb-4">Para confirmar, por favor, escreva a palavra <strong class="text-red-700">EXCLUIR</strong> no campo abaixo.</p>
+            <input type="text" id="delete-all-confirmation-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition">
+            <div class="flex justify-end gap-4 mt-6">
+                <button type="button" id="cancel-delete-all-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancelar</button>
+                <button id="confirm-delete-all-btn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>Confirmar Exclusão Total</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where, getDocs, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuração ---
+       // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDK2HBu3OAc0Igi28i12G6OEc9Exoij1kQ",
+  authDomain: "sistema-assinatura-cesta.firebaseapp.com",
+  projectId: "sistema-assinatura-cesta",
+  storageBucket: "sistema-assinatura-cesta.firebasestorage.app",
+  messagingSenderId: "750955648938",
+  appId: "1:750955648938:web:24f7f3b890b3b9ba6cfdd3",
+  measurementId: "G-9Y4QN5XWDQ"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        // IMPORTANTE: Altere esta senha quando for publicar o sistema!
+        const ADMIN_PASSWORD = "admin";
+
+        // --- Gerenciamento de Estado ---
+        let userId = null;
+        let employeesCollectionRef = null;
+        let customizationDocRef = null;
+        let currentEmployee = null;
+        let currentCustomization = {};
+        let cameraStream = null;
+        let temporaryPhotoDataUrl = null;
+
+        // --- Elementos do DOM ---
+        const views = {
+            login: document.getElementById('login-view'),
+            admin: document.getElementById('admin-view'),
+            employee: document.getElementById('employee-view'),
+        };
+        const loginForm = document.getElementById('login-form');
+        const loginCpfInput = document.getElementById('login-cpf');
+        const loginError = document.getElementById('login-error');
+        const adminLoginBtn = document.getElementById('admin-login-btn');
+        const adminLogoutBtn = document.getElementById('admin-logout-btn');
+        const adminMainContent = document.getElementById('admin-main-content');
+        const employeeLogoutBtn = document.getElementById('employee-logout-btn');
+        const addForm = document.getElementById('add-employee-form');
+        const nameInput = document.getElementById('name');
+        const cpfInput = document.getElementById('cpf');
+        const formError = document.getElementById('form-error');
+        const employeeList = document.getElementById('employee-list');
+        const loadingState = document.getElementById('loading-state');
+        const emptyState = document.getElementById('empty-state');
+        const welcomeMessage = document.getElementById('welcome-message');
+        
+        // Elementos de Registro
+        const registrationContainer = document.getElementById('registration-container');
+        const photoStep = document.getElementById('photo-step');
+        const signatureStep = document.getElementById('signature-step');
+        const finalStep = document.getElementById('final-step');
+        const cameraFeed = document.getElementById('camera-feed');
+        const photoCanvas = document.getElementById('photo-canvas');
+        const cameraError = document.getElementById('camera-error');
+        const capturePhotoBtn = document.getElementById('capture-photo-btn');
+        const retakePhotoBtn = document.getElementById('retake-photo-btn');
+        const photoPreview = document.getElementById('photo-preview');
+        const signaturePad = document.getElementById('signature-pad');
+        const signatureError = document.getElementById('signature-error');
+        const clearSignatureBtn = document.getElementById('clear-signature-btn');
+        const saveFinalBtn = document.getElementById('save-final-btn');
+        const signedConfirmation = document.getElementById('signed-confirmation');
+        
+        // Modal de Registros
+        const signatureModal = document.getElementById('signature-modal');
+        const modalPhoto = document.getElementById('modal-photo');
+        const modalSignature = document.getElementById('modal-signature');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        
+        // Modal de Exclusão
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        
+        // Modal de Login do Admin
+        const adminLoginModal = document.getElementById('admin-login-modal');
+        const adminPasswordForm = document.getElementById('admin-password-form');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const adminLoginError = document.getElementById('admin-login-error');
+        const cancelAdminLoginBtn = document.getElementById('cancel-admin-login-btn');
+        
+        // Modal de Exclusão TOTAL
+        const deleteAllModal = document.getElementById('delete-all-modal');
+        const openDeleteAllModalBtn = document.getElementById('open-delete-all-modal-btn');
+        const deleteAllConfirmationInput = document.getElementById('delete-all-confirmation-input');
+        const confirmDeleteAllBtn = document.getElementById('confirm-delete-all-btn');
+        const cancelDeleteAllBtn = document.getElementById('cancel-delete-all-btn');
+
+        // Personalização
+        const companyNameInput = document.getElementById('company-name-input');
+        const companyLogoInput = document.getElementById('company-logo-input');
+        const reportDescriptionInput = document.getElementById('report-description-input');
+        const saveCustomizationBtn = document.getElementById('save-customization-btn');
+        const customizationFeedback = document.getElementById('customization-feedback');
+        const loginLogo = document.getElementById('login-logo');
+        const loginCompanyName = document.getElementById('login-company-name');
+        const adminLogo = document.getElementById('admin-logo');
+        const adminCompanyName = document.getElementById('admin-company-name');
+        const employeeLogo = document.getElementById('employee-logo');
+        
+        // Importação
+        const excelInput = document.getElementById('excel-input');
+        const importFeedback = document.getElementById('import-feedback');
+
+        // Relatório
+        const reportView = document.getElementById('report-view');
+        const generateReportBtn = document.getElementById('generate-report-btn');
+        const printReportBtn = document.getElementById('print-report-btn');
+        const reportBackBtn = document.getElementById('report-back-btn');
+        const reportTitle = document.getElementById('report-title');
+        const reportTableBody = document.getElementById('report-table-body');
+        const printableReportContent = document.getElementById('printable-report-content');
+
+
+        // --- Lógica de Autenticação ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+               employeesCollectionRef = collection(db, `users/${userId}/employees`);
+customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
+            } else {
+                 try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                         await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                         await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication error:", error);
+                    showView('login');
+                    loginError.textContent = "Erro de autenticação. Tente novamente.";
+                }
+            }
+        });
+        
+        // --- Gerenciamento de Views ---
+        function showView(viewName) {
+            Object.values(views).forEach(view => view.classList.add('hidden'));
+            if(views[viewName]) {
+                views[viewName].classList.remove('hidden');
+                views[viewName].classList.add('view-animation');
+            }
+        }
+
+        // --- Máscaras de CPF ---
+        [loginCpfInput, cpfInput].forEach(input => {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                value = value.substring(0, 11);
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                e.target.value = value;
+            });
+        });
+        
+        // --- Lógica de Login/Logout ---
+        adminLoginBtn.addEventListener('click', () => {
+            adminLoginModal.classList.remove('hidden');
+        });
+
+        function closeAdminLoginModal() {
+            adminPasswordInput.value = '';
+            adminLoginError.textContent = '';
+            adminLoginModal.classList.add('hidden');
+        }
+
+        cancelAdminLoginBtn.addEventListener('click', closeAdminLoginModal);
+        
+        adminPasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (adminPasswordInput.value === ADMIN_PASSWORD) {
+                if (!userId) {
+                    loginError.textContent = "Aguardando autenticação...";
+                    return;
+                }
+                closeAdminLoginModal();
+                showView('admin');
+                listenForEmployees();
+            } else {
+                adminLoginError.textContent = 'Palavra-passe incorreta.';
+            }
+        });
+        
+        adminLogoutBtn.addEventListener('click', () => {
+             // Simplesmente volta para a tela de login
+            showView('login');
+        });
+
+        employeeLogoutBtn.addEventListener('click', () => {
+            stopCamera();
+            currentEmployee = null;
+            loginForm.reset();
+            loginError.textContent = '';
+            showView('login');
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const cpfToLogin = loginCpfInput.value.trim();
+            if (!cpfToLogin || !employeesCollectionRef) {
+                loginError.textContent = "Por favor, preencha o CPF.";
+                return;
+            }
+            loginError.textContent = '';
+
+            const q = query(employeesCollectionRef, where("cpf", "==", cpfToLogin));
+            try {
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) {
+                    loginError.textContent = "CPF não encontrado.";
+                } else {
+                    currentEmployee = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+                    setupEmployeeView();
+                    showView('employee');
+                }
+            } catch (err) {
+                console.error("Login error:", err);
+                loginError.textContent = "Erro ao tentar fazer login.";
+            }
+        });
+
+        // --- Lógica de Personalização ---
+        function loadAndApplyCustomization() {
+            if(!customizationDocRef) return;
+            onSnapshot(customizationDocRef, (doc) => {
+                currentCustomization = doc.exists() ? doc.data() : {};
+                const { companyName, logoUrl, reportDescription } = currentCustomization;
+
+                loginCompanyName.textContent = companyName || 'Bem-vindo ao Portal';
+                if (logoUrl) {
+                    [loginLogo, adminLogo, employeeLogo].forEach(logo => {
+                        logo.src = logoUrl;
+                        logo.onerror = () => { logo.classList.add('hidden'); };
+                        logo.classList.remove('hidden');
+                    });
+                } else {
+                    [loginLogo, adminLogo, employeeLogo].forEach(logo => logo.classList.add('hidden'));
+                }
+
+                adminCompanyName.textContent = companyName || 'Painel do Administrador';
+                companyNameInput.value = companyName || '';
+                reportDescriptionInput.value = reportDescription || '';
+            });
+        }
+
+        saveCustomizationBtn.addEventListener('click', async () => {
+            if(!customizationDocRef) return;
+            
+            customizationFeedback.className = 'text-sm mt-3 h-5 text-blue-600';
+            customizationFeedback.textContent = 'Salvando...';
+
+            const companyName = companyNameInput.value.trim();
+            const reportDescription = reportDescriptionInput.value.trim();
+            const logoFile = companyLogoInput.files[0];
+
+            let logoDataUrl = currentCustomization.logoUrl || null;
+
+            if (logoFile) {
+                try {
+                    logoDataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = error => reject(error);
+                        reader.readAsDataURL(logoFile);
+                    });
+                } catch (error) {
+                    customizationFeedback.className = 'text-sm mt-3 h-5 text-red-600';
+                    customizationFeedback.textContent = 'Erro ao ler o ficheiro do logo.';
+                    return;
+                }
+            }
+
+            try {
+                await setDoc(customizationDocRef, { companyName, reportDescription, logoUrl: logoDataUrl });
+                customizationFeedback.className = 'text-sm mt-3 h-5 text-green-600';
+                customizationFeedback.textContent = 'Personalização salva com sucesso!';
+            } catch (error) {
+                console.error("Error saving customization:", error);
+                customizationFeedback.className = 'text-sm mt-3 h-5 text-red-600';
+                customizationFeedback.textContent = 'Erro ao salvar.';
+            } finally {
+                companyLogoInput.value = '';
+            }
+        });
+        
+        // --- Lógica do Painel do Administrador ---
+        function listenForEmployees() {
+            if (!employeesCollectionRef) return;
+            onSnapshot(query(employeesCollectionRef), (snapshot) => {
+                loadingState.classList.add('hidden');
+                if (snapshot.empty) {
+                    emptyState.classList.remove('hidden');
+                    employeeList.innerHTML = '';
+                    employeeList.appendChild(emptyState);
+                } else {
+                    emptyState.classList.add('hidden');
+                    const employees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderEmployees(employees);
+                }
+            }, (error) => console.error("Error fetching employees: ", error));
+        }
+
+        addForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            formError.textContent = '';
+            const name = nameInput.value.trim();
+            const cpf = cpfInput.value.trim();
+            if (!validateCPF(cpf)) {
+                formError.textContent = 'CPF inválido.';
+                return;
+            }
+            if (name && cpf && employeesCollectionRef) {
+                await addDoc(employeesCollectionRef, { name, cpf, registrations: {} });
+                addForm.reset();
+            }
+        });
+
+        function renderEmployees(employees) {
+            employeeList.innerHTML = '';
+            employees.sort((a,b) => a.name.localeCompare(b.name)).forEach(employee => {
+                const currentMonthKey = new Date().toISOString().slice(0, 7);
+                const registrationData = employee.registrations?.[currentMonthKey];
+                const hasSigned = !!registrationData;
+
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4';
+                card.innerHTML = `
+                    <div class="flex-grow text-center sm:text-left">
+                        <p class="font-semibold text-lg text-gray-800">${employee.name}</p>
+                        <p class="text-sm text-gray-500">CPF: ${employee.cpf}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button data-registration='${hasSigned ? JSON.stringify(registrationData) : ''}' class="signature-status-btn w-36 text-center py-2 px-4 rounded-lg font-semibold transition-colors duration-200 ${
+                            hasSigned 
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                            : 'bg-yellow-100 text-yellow-700 cursor-not-allowed'
+                        }">
+                            <i class="fas ${hasSigned ? 'fa-eye' : 'fa-times-circle'} mr-2"></i>
+                            ${hasSigned ? 'Ver Registros' : 'Pendente'}
+                        </button>
+                        <button class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-2"><i class="fas fa-trash-alt fa-lg"></i></button>
+                    </div>
+                `;
+                
+                const statusBtn = card.querySelector('.signature-status-btn');
+                if(hasSigned) {
+                    statusBtn.addEventListener('click', () => {
+                        const data = JSON.parse(statusBtn.dataset.registration);
+                        modalPhoto.src = data.photoUrl;
+                        modalSignature.src = data.signatureUrl;
+                        signatureModal.classList.remove('hidden');
+                    });
+                }
+
+                card.querySelector('.delete-btn').addEventListener('click', () => {
+                    deleteConfirmModal.classList.remove('hidden');
+                    confirmDeleteBtn.dataset.employeeId = employee.id;
+                });
+
+                employeeList.appendChild(card);
+            });
+        }
+        
+        // --- Lógica de Importação de Planilha ---
+        excelInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            importFeedback.textContent = 'Processando...';
+            importFeedback.className = 'text-sm mt-3 h-5 text-blue-600';
+
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data);
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                if (jsonData.length === 0) throw new Error("A planilha está vazia ou em formato incorreto.");
+
+                const normalizeHeader = (h) => h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const header = Object.keys(jsonData[0]).map(normalizeHeader);
+                if (!header.includes("nome") || !header.includes("cpf")) throw new Error('A planilha deve conter as colunas "Nome" e "CPF".');
+                
+                const existingQuery = await getDocs(query(employeesCollectionRef));
+                const existingCpfs = new Set(existingQuery.docs.map(doc => doc.data().cpf));
+                
+                const batch = writeBatch(db);
+                let importedCount = 0;
+                let skippedCount = 0;
+
+                jsonData.forEach(row => {
+                    const nameKey = Object.keys(row).find(k => normalizeHeader(k) === 'nome');
+                    const cpfKey = Object.keys(row).find(k => normalizeHeader(k) === 'cpf');
+                    const name = row[nameKey] ? String(row[nameKey]).trim() : '';
+                    const cpfRaw = row[cpfKey] ? String(row[cpfKey]).trim() : '';
+                    
+                    if (name && cpfRaw) {
+                        const cpf = cpfRaw.replace(/\D/g, '').padStart(11, '0');
+                        const cpfFormatted = `${cpf.slice(0,3)}.${cpf.slice(3,6)}.${cpf.slice(6,9)}-${cpf.slice(9,11)}`;
+
+                        if (validateCPF(cpfFormatted) && !existingCpfs.has(cpfFormatted)) {
+                            const newEmployeeRef = doc(employeesCollectionRef);
+                            batch.set(newEmployeeRef, { name, cpf: cpfFormatted, registrations: {} });
+                            existingCpfs.add(cpfFormatted);
+                            importedCount++;
+                        } else {
+                            skippedCount++;
+                        }
+                    }
+                });
+                
+                if (importedCount > 0) await batch.commit();
+                importFeedback.className = 'text-sm mt-3 h-5 text-green-600';
+                importFeedback.textContent = `${importedCount} funcionário(s) importado(s). ${skippedCount} ignorado(s).`;
+
+            } catch (error) {
+                console.error("Import error:", error);
+                importFeedback.className = 'text-sm mt-3 h-5 text-red-600';
+                importFeedback.textContent = error.message;
+            } finally {
+                excelInput.value = '';
+            }
+        });
+
+        // --- Lógica de Relatórios ---
+        generateReportBtn.addEventListener('click', async () => {
+            const q = query(employeesCollectionRef);
+            const querySnapshot = await getDocs(q);
+            const employees = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const currentMonthKey = new Date().toISOString().slice(0, 7);
+            const monthName = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+            const title = `CESTA BÁSICA - ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`;
+            reportTitle.textContent = title;
+            
+            reportTableBody.innerHTML = ''; 
+            employees.sort((a,b) => a.name.localeCompare(b.name)).forEach(employee => {
+                const registrationData = employee.registrations?.[currentMonthKey];
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-200';
+                tr.innerHTML = `
+                    <td class="p-3 align-middle">${employee.name}</td>
+                    <td class="p-3 align-middle">${employee.cpf}</td>
+                    <td class="p-3 align-middle">
+                        ${registrationData?.photoUrl 
+                            ? `<img src="${registrationData.photoUrl}" alt="Registro Visual" class="h-16 w-16 object-cover rounded-md bg-gray-100 p-1">`
+                            : '<span class="text-yellow-700 font-semibold">Pendente</span>'
+                        }
+                    </td>
+                    <td class="p-3 align-middle">
+                        ${registrationData?.signatureUrl
+                            ? `<img src="${registrationData.signatureUrl}" alt="Assinatura" class="h-12 bg-gray-50 p-1 rounded">`
+                            : ''
+                        }
+                    </td>
+                `;
+                reportTableBody.appendChild(tr);
+            });
+
+            adminMainContent.classList.add('hidden');
+            reportView.classList.remove('hidden');
+        });
+
+        reportBackBtn.addEventListener('click', () => {
+            reportView.classList.add('hidden');
+            adminMainContent.classList.remove('hidden');
+        });
+
+        printReportBtn.addEventListener('click', () => {
+            const reportContent = printableReportContent.innerHTML;
+            const { companyName, logoUrl, reportDescription } = currentCustomization;
+            const reportTitleText = reportTitle.textContent;
+
+            let headerHtml = `<h1 class="text-2xl font-bold mb-6">${reportTitleText}</h1>`;
+            if (companyName) {
+                headerHtml = `<div class="flex items-center justify-between mb-6 border-b pb-4">
+                                <h1 class="text-2xl font-bold">${companyName}</h1>
+                                ${logoUrl ? `<img src="${logoUrl}" class="company-logo" style="max-height: 50px;">` : ''}
+                              </div>
+                              <h2 class="text-xl font-semibold mb-2">${reportTitleText}</h2>
+                              ${reportDescription ? `<p class="text-gray-600 mb-4">${reportDescription}</p>` : ''}`;
+            }
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>${reportTitleText}</title>
+                        <script src="https://cdn.tailwindcss.com"><\/script>
+                        <style>
+                            body { font-family: 'Inter', sans-serif; }
+                            td { vertical-align: middle; }
+                            img { max-height: 64px !important; }
+                        </style>
+                    </head>
+                    <body class="p-8">
+                        ${headerHtml}
+                        ${reportContent}
+                    </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        });
+
+        // --- Lógica do Portal do Funcionário e Câmera ---
+        let sigCtx, isSignatureDirty = false, sigDrawing = false, sigLastPos = { x: 0, y: 0 };
+        
+        async function startCamera() {
+            stopCamera();
+            cameraError.textContent = '';
+            try {
+                if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+                    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    cameraFeed.srcObject = cameraStream;
+                } else {
+                    throw new Error('O dispositivo não suporta acesso à câmera.');
+                }
+            } catch (err) {
+                console.error("Camera Error:", err);
+                cameraError.textContent = 'Não foi possível acessar a câmera. Verifique as permissões.';
+                capturePhotoBtn.disabled = true;
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        }
+        
+        function setupEmployeeView() {
+            welcomeMessage.textContent = `Olá, ${currentEmployee.name.split(' ')[0]}!`;
+            const currentMonthKey = new Date().toISOString().slice(0, 7);
+            const registrationData = currentEmployee.registrations?.[currentMonthKey];
+
+            if (registrationData) {
+                registrationContainer.classList.add('hidden');
+                signedConfirmation.classList.remove('hidden');
+                stopCamera();
+            } else {
+                registrationContainer.classList.remove('hidden');
+                signedConfirmation.classList.add('hidden');
+                photoStep.classList.remove('hidden');
+                signatureStep.classList.add('hidden');
+                finalStep.classList.add('hidden');
+                startCamera();
+            }
+        }
+        
+        capturePhotoBtn.addEventListener('click', () => {
+            const context = photoCanvas.getContext('2d');
+            photoCanvas.width = cameraFeed.videoWidth;
+            photoCanvas.height = cameraFeed.videoHeight;
+            context.scale(-1, 1);
+            context.drawImage(cameraFeed, -photoCanvas.width, 0, photoCanvas.width, photoCanvas.height);
+            temporaryPhotoDataUrl = photoCanvas.toDataURL('image/jpeg', 0.8);
+            photoPreview.src = temporaryPhotoDataUrl;
+            
+            photoStep.classList.add('hidden');
+            signatureStep.classList.remove('hidden');
+            finalStep.classList.remove('hidden');
+            stopCamera();
+            initializeSignatureCanvas();
+        });
+
+        retakePhotoBtn.addEventListener('click', () => {
+            photoStep.classList.remove('hidden');
+            signatureStep.classList.add('hidden');
+            finalStep.classList.add('hidden');
+            temporaryPhotoDataUrl = null;
+            clearSignatureCanvas();
+            startCamera();
+        });
+        
+        function initializeSignatureCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            signaturePad.width = signaturePad.offsetWidth * ratio;
+            signaturePad.height = signaturePad.offsetHeight * ratio;
+            sigCtx = signaturePad.getContext('2d');
+            sigCtx.scale(ratio, ratio);
+            sigCtx.strokeStyle = '#374151';
+            sigCtx.lineWidth = 2;
+            sigCtx.lineCap = 'round';
+            sigCtx.lineJoin = 'round';
+            clearSignatureCanvas();
+        }
+
+        function getSignaturePosition(event) {
+            const rect = signaturePad.getBoundingClientRect();
+            const e = event.touches ? event.touches[0] : event;
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function startSignatureDrawing(e) {
+            e.preventDefault();
+            sigDrawing = true;
+            isSignatureDirty = true;
+            sigLastPos = getSignaturePosition(e);
+        }
+
+        function drawSignature(e) {
+            e.preventDefault();
+            if (!sigDrawing) return;
+            const pos = getSignaturePosition(e);
+            sigCtx.beginPath();
+            sigCtx.moveTo(sigLastPos.x, sigLastPos.y);
+            sigCtx.lineTo(pos.x, pos.y);
+            sigCtx.stroke();
+            sigLastPos = pos;
+        }
+
+        function stopSignatureDrawing() { sigDrawing = false; }
+        function clearSignatureCanvas() {
+            if(sigCtx) sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+            isSignatureDirty = false;
+            signatureError.textContent = '';
+        }
+
+        ['mousedown', 'touchstart'].forEach(e => signaturePad.addEventListener(e, startSignatureDrawing));
+        ['mousemove', 'touchmove'].forEach(e => signaturePad.addEventListener(e, drawSignature));
+        ['mouseup', 'mouseleave', 'touchend'].forEach(e => signaturePad.addEventListener(e, stopSignatureDrawing));
+        clearSignatureBtn.addEventListener('click', clearSignatureCanvas);
+        
+        saveFinalBtn.addEventListener('click', async () => {
+            signatureError.textContent = '';
+            if (!isSignatureDirty) {
+                signatureError.textContent = "Por favor, assine no campo antes de salvar.";
+                return;
+            }
+            if (!temporaryPhotoDataUrl) {
+                alert("Erro: a foto não foi capturada. Por favor, tente novamente.");
+                return;
+            }
+
+            const signatureDataUrl = signaturePad.toDataURL('image/png');
+            const employeeDocRef = doc(db, `artifacts/${appId}/users/${userId}/employees`, currentEmployee.id);
+            const currentMonthKey = new Date().toISOString().slice(0, 7);
+            
+            const newRegistration = {
+                photoUrl: temporaryPhotoDataUrl,
+                signatureUrl: signatureDataUrl,
+                timestamp: new Date().toISOString()
+            };
+            const newRegistrations = { ...currentEmployee.registrations, [currentMonthKey]: newRegistration };
+
+            try {
+                saveFinalBtn.disabled = true;
+                saveFinalBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                await updateDoc(employeeDocRef, { registrations: newRegistrations });
+                currentEmployee.registrations = newRegistrations;
+                setupEmployeeView();
+            } catch (err) {
+                console.error("Error saving registration:", err);
+                signatureError.textContent = "Ocorreu um erro ao salvar o registro.";
+            } finally {
+                saveFinalBtn.disabled = false;
+                saveFinalBtn.innerHTML = '<i class="fas fa-check-circle mr-3"></i>Finalizar e Salvar Registro';
+            }
+        });
+
+        // --- Lógica do Modal ---
+        closeModalBtn.addEventListener('click', () => signatureModal.classList.add('hidden'));
+        document.querySelectorAll('.modal-backdrop').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.currentTarget.parentElement.classList.add('hidden');
+            });
+        });
+
+        // --- Lógica do Modal de Exclusão ---
+        cancelDeleteBtn.addEventListener('click', () => deleteConfirmModal.classList.add('hidden'));
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            const employeeId = confirmDeleteBtn.dataset.employeeId;
+            if (employeeId) {
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/employees`, employeeId));
+                    deleteConfirmModal.classList.add('hidden');
+                } catch (error) {
+                    console.error("Erro ao deletar funcionário: ", error);
+                    deleteConfirmModal.classList.add('hidden');
+                }
+            }
+        });
+
+        // --- Lógica do Modal de Exclusão TOTAL ---
+        openDeleteAllModalBtn.addEventListener('click', () => deleteAllModal.classList.remove('hidden'));
+        cancelDeleteAllBtn.addEventListener('click', () => {
+            deleteAllConfirmationInput.value = '';
+            deleteAllModal.classList.add('hidden');
+        });
+        
+        deleteAllConfirmationInput.addEventListener('input', () => {
+            if (deleteAllConfirmationInput.value === 'EXCLUIR') {
+                confirmDeleteAllBtn.disabled = false;
+                confirmDeleteAllBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                confirmDeleteAllBtn.disabled = true;
+                confirmDeleteAllBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        confirmDeleteAllBtn.addEventListener('click', async () => {
+            confirmDeleteAllBtn.disabled = true;
+            confirmDeleteAllBtn.textContent = 'Excluindo...';
+            
+            try {
+                const querySnapshot = await getDocs(query(employeesCollectionRef));
+                const batch = writeBatch(db);
+                querySnapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                alert('Todos os funcionários foram excluídos com sucesso.');
+            } catch (error) {
+                console.error('Erro ao excluir todos os funcionários:', error);
+                alert('Ocorreu um erro. Por favor, tente novamente.');
+            } finally {
+                confirmDeleteAllBtn.disabled = false;
+                confirmDeleteAllBtn.textContent = 'Confirmar Exclusão Total';
+                deleteAllConfirmationInput.value = '';
+                deleteAllModal.classList.add('hidden');
+            }
+        });
+
+
+        // --- Validação de CPF ---
+        function validateCPF(cpfStr) {
+            const cpf = cpfStr.replace(/[^\d]+/g,'');
+            if(cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+            let add = 0;
+            for (let i=0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+            let rev = 11 - (add % 11);
+            if (rev === 10 || rev === 11) rev = 0;
+            if (rev !== parseInt(cpf.charAt(9))) return false;
+            add = 0;
+            for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+            rev = 11 - (add % 11);
+            if (rev === 10 || rev === 11) rev = 0;
+            if (rev !== parseInt(cpf.charAt(10))) return false;
+            return true;
+        }
+
+        // --- Inicialização ---
+        showView('login');
+
+    </script>
+</body>
+</html>

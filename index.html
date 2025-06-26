@@ -323,15 +323,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where, getDocs, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Configuração ---
-       // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+        const firebaseConfig = {
   apiKey: "AIzaSyDK2HBu3OAc0Igi28i12G6OEc9Exoij1kQ",
   authDomain: "sistema-assinatura-cesta.firebaseapp.com",
   projectId: "sistema-assinatura-cesta",
@@ -340,11 +332,7 @@ const firebaseConfig = {
   appId: "1:750955648938:web:24f7f3b890b3b9ba6cfdd3",
   measurementId: "G-9Y4QN5XWDQ"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-        
+    
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -353,6 +341,7 @@ const analytics = getAnalytics(app);
 
         // --- Gerenciamento de Estado ---
         let userId = null;
+        let adminIsLoggedIn = false;
         let employeesCollectionRef = null;
         let customizationDocRef = null;
         let currentEmployee = null;
@@ -454,8 +443,9 @@ const analytics = getAnalytics(app);
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 userId = user.uid;
-               employeesCollectionRef = collection(db, `users/${userId}/employees`);
+                employeesCollectionRef = collection(db, `users/${userId}/employees`);
 customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
+                loadAndApplyCustomization();
             } else {
                  try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -508,10 +498,7 @@ customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
         adminPasswordForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (adminPasswordInput.value === ADMIN_PASSWORD) {
-                if (!userId) {
-                    loginError.textContent = "Aguardando autenticação...";
-                    return;
-                }
+                adminIsLoggedIn = true;
                 closeAdminLoginModal();
                 showView('admin');
                 listenForEmployees();
@@ -521,7 +508,7 @@ customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
         });
         
         adminLogoutBtn.addEventListener('click', () => {
-             // Simplesmente volta para a tela de login
+             adminIsLoggedIn = false;
             showView('login');
         });
 
@@ -624,7 +611,7 @@ customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
         
         // --- Lógica do Painel do Administrador ---
         function listenForEmployees() {
-            if (!employeesCollectionRef) return;
+            if (!employeesCollectionRef || !adminIsLoggedIn) return;
             onSnapshot(query(employeesCollectionRef), (snapshot) => {
                 loadingState.classList.add('hidden');
                 if (snapshot.empty) {
@@ -978,7 +965,7 @@ customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
             }
 
             const signatureDataUrl = signaturePad.toDataURL('image/png');
-            const employeeDocRef = doc(db, `artifacts/${appId}/users/${userId}/employees`, currentEmployee.id);
+            const employeeDocRef = doc(employeesCollectionRef, currentEmployee.id);
             const currentMonthKey = new Date().toISOString().slice(0, 7);
             
             const newRegistration = {
@@ -1018,7 +1005,7 @@ customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
             const employeeId = confirmDeleteBtn.dataset.employeeId;
             if (employeeId) {
                 try {
-                    await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/employees`, employeeId));
+                    await deleteDoc(doc(employeesCollectionRef, employeeId));
                     deleteConfirmModal.classList.add('hidden');
                 } catch (error) {
                     console.error("Erro ao deletar funcionário: ", error);

@@ -440,26 +440,23 @@
 
 
         // --- Lógica de Autenticação ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                employeesCollectionRef = collection(db, `users/${userId}/employees`);
-customizationDocRef = doc(db, `users/${userId}/settings`, 'customization');
-                loadAndApplyCustomization();
-            } else {
-                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                         await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                         await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication error:", error);
-                    showView('login');
-                    loginError.textContent = "Erro de autenticação. Tente novamente.";
-                }
-            }
-        });
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        // A sessão anónima está ativa. Vamos usar um ID fixo para os dados da empresa.
+        const companyDataId = "main_company_data"; 
+        employeesCollectionRef = collection(db, `companies/${companyDataId}/employees`);
+        customizationDocRef = doc(db, `companies/${companyDataId}/settings`, 'customization');
+        loadAndApplyCustomization();
+    } else {
+         try {
+            // Se não houver sessão, inicia uma anónima.
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("Authentication error:", error);
+            alert("Erro de autenticação. Verifique as configurações do Firebase e a conexão.");
+        }
+    }
+});
         
         // --- Gerenciamento de Views ---
         function showView(viewName) {
